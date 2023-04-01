@@ -1,4 +1,4 @@
-import { SignInButton, useUser } from "@clerk/nextjs";
+import { SignInButton, SignOutButton, useUser } from "@clerk/nextjs";
 import { type NextPage } from "next";
 import Head from "next/head";
 import { api } from "~/utils/api";
@@ -8,11 +8,14 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
 import { LoadingPage } from "~/components/loading-spinner";
+import { useState } from "react";
 
 dayjs.extend(relativeTime);
 
 const CreatePostWizard = () => {
+  const [content, setContent] = useState("");
   const { user } = useUser();
+  const { mutate } = api.posts.create.useMutation();
 
   if (!user) return null;
 
@@ -29,7 +32,17 @@ const CreatePostWizard = () => {
         type="text"
         placeholder="Type some emojis"
         className="grow bg-transparent outline-none"
+        value={content}
+        onChange={(val) => setContent(val.target.value)}
       />
+      <button
+        onClick={() => {
+          mutate({ content });
+          setContent("");
+        }}
+      >
+        Tweet!
+      </button>
     </div>
   );
 };
@@ -96,7 +109,10 @@ const Home: NextPage = () => {
                 <SignInButton />
               </div>
             ) : (
-              <CreatePostWizard />
+              <>
+                <SignOutButton />
+                <CreatePostWizard />
+              </>
             )}
           </div>
           <Feed />
