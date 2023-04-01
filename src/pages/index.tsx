@@ -1,4 +1,4 @@
-import { SignInButton, SignOutButton, useUser } from "@clerk/nextjs";
+import { SignInButton, useUser } from "@clerk/nextjs";
 import { type NextPage } from "next";
 import Head from "next/head";
 import { api } from "~/utils/api";
@@ -15,7 +15,13 @@ dayjs.extend(relativeTime);
 const CreatePostWizard = () => {
   const [content, setContent] = useState("");
   const { user } = useUser();
-  const { mutate } = api.posts.create.useMutation();
+  const ctx = api.useContext();
+  const { mutate, isLoading: isPosting } = api.posts.create.useMutation({
+    onSuccess: () => {
+      setContent("");
+      void ctx.posts.getAll.invalidate();
+    },
+  });
 
   if (!user) return null;
 
@@ -34,11 +40,11 @@ const CreatePostWizard = () => {
         className="grow bg-transparent outline-none"
         value={content}
         onChange={(val) => setContent(val.target.value)}
+        disabled={isPosting}
       />
       <button
         onClick={() => {
           mutate({ content });
-          setContent("");
         }}
       >
         Tweet!
@@ -79,7 +85,7 @@ const Feed = () => {
 
   return (
     <div className="flex flex-col">
-      {[...data, ...data]?.map((fullPost) => (
+      {data?.map((fullPost) => (
         <PostView key={fullPost.post.id} {...fullPost} />
       ))}
     </div>
@@ -109,10 +115,7 @@ const Home: NextPage = () => {
                 <SignInButton />
               </div>
             ) : (
-              <>
-                <SignOutButton />
-                <CreatePostWizard />
-              </>
+              <CreatePostWizard />
             )}
           </div>
           <Feed />

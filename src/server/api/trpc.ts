@@ -18,10 +18,11 @@ import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 import { prisma } from "~/server/db";
 
+interface AuthContext {
+  auth: SignedInAuthObject | SignedOutAuthObject;
+}
+
 /**
-type CreateContextOptions = Record<string, never>;
-
-
  * This helper generates the "internals" for a tRPC context. If you need to use it, you can export
  * it from here.
  *
@@ -30,12 +31,15 @@ type CreateContextOptions = Record<string, never>;
  * - tRPC's `createSSGHelpers`, where we don't have req/res
  *
  * @see https://create.t3.gg/en/usage/trpc#-serverapitrpcts
- 
-const createInnerTRPCContext = (_opts: CreateContextOptions) => {
+ *
+ */
+
+const createInnerTRPCContext = ({ auth }: AuthContext) => {
   return {
     prisma,
+    auth,
   };
-};*/
+};
 
 /**
  * This is the actual context you will use in your router. It will be used to process every request
@@ -44,15 +48,7 @@ const createInnerTRPCContext = (_opts: CreateContextOptions) => {
  * @see https://trpc.io/docs/context
  */
 export const createTRPCContext = (opts: CreateNextContextOptions) => {
-  const { req } = opts;
-  const sesh = getAuth(req);
-
-  const user = sesh.user;
-
-  return {
-    prisma,
-    currentUser: user,
-  };
+  return createInnerTRPCContext({ auth: getAuth(opts.req) });
 };
 
 /**
@@ -66,6 +62,10 @@ import { TRPCError, initTRPC } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import { getAuth } from "@clerk/nextjs/server";
+import type {
+  SignedInAuthObject,
+  SignedOutAuthObject,
+} from "@clerk/nextjs/dist/api";
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
   transformer: superjson,
@@ -104,15 +104,15 @@ export const createTRPCRouter = t.router;
  */
 export const publicProcedure = t.procedure;
 
-const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.currentUser) {
+const isAuthed = t.middleware(({ ctx, next }) => {
+  if (!ctx.auth.userId) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
   return next({
     ctx: {
-      currentUser: ctx.currentUser,
+      auth: ctx.auth,
     },
   });
 });
 
-export const privateProcedure = t.procedure.use(enforceUserIsAuthed);
+export const privateProcedure = t.procedure.use(isAuthed);

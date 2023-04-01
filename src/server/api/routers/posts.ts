@@ -20,6 +20,11 @@ export const postsRouter = createTRPCRouter({
   getAll: publicProcedure.query(async ({ ctx }) => {
     const posts = await ctx.prisma.post.findMany({
       take: 100,
+      orderBy: [
+        {
+          createdAt: "desc",
+        },
+      ],
     });
 
     const users = (
@@ -55,7 +60,7 @@ export const postsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const authorId = ctx.currentUser.id;
+      const authorId = ctx.auth.userId;
 
       const post = await ctx.prisma.post.create({
         data: {
